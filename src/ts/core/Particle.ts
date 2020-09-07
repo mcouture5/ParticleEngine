@@ -1,3 +1,5 @@
+import { ParticleMath } from "../ParticleMath";
+
 /**
  * Internal options for each Particle.
  */
@@ -20,9 +22,10 @@ export interface ParticleOptions {
     // Attributes copied from the emitter
 
     gravity: number;
+    size: number;
     direction: number;
     speed: number;
-    driftInterval: number;
+    jitter: number;
 }
 
 interface Position {
@@ -40,20 +43,16 @@ export class Particle {
 
     // Movement attributes of the particle
     private speed: number;
-    private driftX: number = 0;
-    private driftY: number = 0;
-    private driftInterval: number;
-    private driftRate = 0.005; //constant rate of acceleration for the drift
-    private lastDriftChange: number = 0;
+    private drift: number = 0;
     private fx: number; // force in the x direction
     private fy: number; // force in the y direction
     private gravity: number;
 
-    // Flock attributes
-    private flockQueue: Array<{ x: number, y: number, interval: number }> = [];
-    private lastFlocked: number = 0;
-    private flockInterval: number = 0;
-    private destination: Position;
+    // Jitter attributes
+    private jitter: number;
+    private jitterForce: number;
+    private jitterInterval: number = 0;
+    private lastJitter: number;
 
     // Particle life attributes
     private age: number;
@@ -61,60 +60,47 @@ export class Particle {
     private birthdate: number;
     private dead: boolean = false;
 
+    // Size attributes
+    private size: number = 1;
+
     private color: string;
 
     constructor(canvasContext: CanvasRenderingContext2D, timestamp: DOMHighResTimeStamp, options: ParticleOptions) {
         this.canvasContext = canvasContext;
-        this.x = options.x;
-        this.y = options.y;
-        this.gravity = options.gravity;
-        this.lifespan = options.lifespan;
-        this.speed = Math.abs(options.speed);
         this.birthdate = timestamp;
-
-        // this.color = this.getRndColor();
-
-        this.setDriftIntrval(options.driftInterval, timestamp);
+        
+        // Copy over all of the options
+        for (const key in options) {
+            this[key] = options[key]
+        }
 
         // Apply an outward force to propel the particle in the direction specified by its angle
         this.fx = Math.cos(options.direction * (Math.PI/180));
         this.fy = Math.sin(options.direction * (Math.PI/180));
+
+        // If there is a jitter, set up the random interval at which this particle will jitter. The interval and force
+        // will scale with the value.
+        this.jitter = Math.abs(this.jitter);
+        if (this.jitter > 0) {
+            // The jitter force will scale up with the jitter value. Higher value means higher force.
+            this.jitterForce = ParticleMath.getRandomFloatBetween(this.jitter - 0.1, this.jitter + 0.1);
+            // Start with a random direction
+            this.jitterForce = ParticleMath.randomizeSign(this.jitterForce);
+            this.lastJitter = timestamp;
+            
+            // Set an initial interval
+            let minInterval = Math.max(500 - (this.jitter * 100), 0);
+            let maxInterval = Math.max(700 - (this.jitter * 100), 100);
+            this.jitterInterval = ParticleMath.getRandomBetween(minInterval, maxInterval);
+        }
     }
 
     /**
-     * Sets the direction of the particle in degrees. Changing this in real time will apply force in the new direction, leading to
-     * a smooth change in movement.
+     * Set a new drift value.
+     * @param drift
      */
-    setDirection(direction: number) {
-        this.fx = Math.cos(direction * (Math.PI/180));
-        this.fy = Math.sin(direction * (Math.PI/180));
-    }
-
-    setDriftIntrval(driftInterval: number, timestamp: number) {
-        this.driftInterval = driftInterval;
-        this.lastDriftChange = timestamp;
-    }
-
-    setDrift(x: number, y:number) {
-        this.driftX = x;
-        this.driftY = y;
-    }
-
-    setPosition(x: number, y: number) {
-        this.x = x;
-        this.y = y;
-    }
-
-    setColor(color: string) {
-        this.color = color;
-    }
-
-    updateFlock(x: number, y: number, interval: number) {
-        this.flockQueue.push({
-            x: x,
-            y: y,
-            interval: interval
-        });
+    setDrift(drift: number) {
+        this.drift = drift;
     }
 
      /**
@@ -145,22 +131,8 @@ export class Particle {
         // Apply drift, thus aplying a force to the particle
         this.applyDrift();
 
-        // Apply the flock momentum. This is done after drift because it uses drift to simulate movement.
-        if (this.flockQueue.length && timestamp - this.lastFlocked > this.flockInterval) {
-            let behavior = this.flockQueue.shift();
-            this.destination = { x: behavior.x, y: behavior.y };
-            this.lastFlocked = timestamp;
-            this.flockInterval = behavior.interval;
-        }
-
-        if (this.destination) {
-            // Get the angle to the destination
-            let angle = Math.atan2(this.destination.y - this.y, this.destination.x - this.x);
-
-            // Apply a force in the direction of the angle. Damper it based on the speed.
-            this.fx += Math.cos(angle) / this.speed;
-            this.fy += Math.sin(angle) / this.speed;
-        }
+        // Apply drift, thus aplying a force to the particle
+        this.applyJitter(timestamp, delta);
 
         // Move
         this.x += (this.speed * this.fx) * (delta / 1000);
@@ -177,7 +149,7 @@ export class Particle {
         }
 
         this.canvasContext.fillStyle = this.color;
-        this.canvasContext.fillRect(this.x, this.y, 10, 10);
+        this.canvasContext.fillRect(this.x, this.y, 10 * this.size, 10 * this.size);
     }
 
     public isDead(): boolean {
@@ -185,44 +157,32 @@ export class Particle {
     }
 
     /**
-     * Returns true if this particle is ready for a drift change. This is determined by the different between the
-     * current time and the last drift change.
-     */
-    public readyForDriftChange(timestamp: number) {
-        return timestamp - this.lastDriftChange >= this.driftInterval;
-    }
-
-    private getRndColor() {
-        var r = 255*Math.random()|0,
-            g = 255*Math.random()|0,
-            b = 255*Math.random()|0;
-        return 'rgb(' + r + ',' + g + ',' + b + ')';
-    }
-
-    /**
-     * Applies a gravity to the y axis of the particle. Gravity is a constant force.
+     * Applies a constant force to the y axis of the particle.
      */
     private applyGravity() {
-        this.fy += this.gravity;
+        this.fy += (this.gravity * this.size);
     }
 
     /**
-     * Using the drift set from the emitter, apply a force in the drift direction. A negative drift moves left, and a
-     * positive moves right.
+     * Applies a constant force to the x axis of the particle.
      */
     private applyDrift() {
-        // Accelerate along the x axis until the desired drift force has been reached
-        if (this.driftX < 0 && (this.fx > this.driftX)) {
-            this.fx -= this.driftRate; // accelerate left
-        } else if (this.driftX > 0 && (this.fx < this.driftX)) {
-            this.fx += this.driftRate; // accelerate right
-        }
-
-        // Accelerate along the y axis until the desired drift force has been reached
-        if (this.driftY < 0 && (this.fy > this.driftY)) {
-            this.fy -= this.driftRate; // accelerate up
-        } else if (this.driftY > 0 && (this.fy < this.driftY)) {
-            this.fy += this.driftRate; // accelerate down
+        this.fx += (this.drift * this.size);
+    }
+    
+    /**
+     * Applies the jitter force to the particle.
+     */
+    private applyJitter(timestamp: number, delta: number) {
+        if (this.jitter > 0) {
+            // Check if it is time to change the jitter direction.
+            if (timestamp - this.lastJitter >= this.jitterInterval) {
+                this.jitterForce = ParticleMath.reverseSign(this.jitterForce);
+                this.lastJitter = timestamp;
+            }
+            let framesToNextInterval = (this.jitterInterval - (timestamp - this.lastJitter)) / delta;
+            let scale = framesToNextInterval - ((this.jitterInterval / delta) / 2);
+            this.fx += (this.jitterForce * scale) / this.speed;
         }
     }
 }
