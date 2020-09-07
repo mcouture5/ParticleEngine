@@ -1,0 +1,29 @@
+{
+  "name": "ParticleEngine",
+  "version": "1.0.0",
+  "description": "Simple Particle System engine",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "dev": "webpack-dev-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mcouture5/ParticleEngine.git"
+  },
+  "keywords": [],
+  "author": "Mike Couture",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mcouture5/ParticleEngine/issues"
+  },
+  "homepage": "https://github.com/mcouture5/ParticleEngine#readme",
+  "devDependencies": {
+    "awesome-typescript-loader": "^5.2.1",
+    "html-webpack-plugin": "^4.4.1",
+    "typescript": "^4.0.2",
+    "webpack": "^4.44.1",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  }
+}
