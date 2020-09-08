@@ -4,6 +4,15 @@ Simple Particle System engine
 # Live Demo
 [View the live demo](https://mcouture5.github.io/ParticleEngine/) hosted on GitHub.
 
+The demo contains 4 different modes that may be selected:
+
+* Snow: Gentle snowfall demonstrating the flow mode with a random drift and jitter applied.
+* Rain: Falling rain demonstrating the flow mode and accelerated speed of the particles.
+* Fireworks: Firework display demonstrating the burst mode and random positioning.
+* Default: Configuration demonstrating the default values of the emitter.
+
+The engine may be paused and resumed using the Play and Pause buttons.
+
 # Running locally
 The engine may be run locally, using the same demo page hosted on GitHub.
 
