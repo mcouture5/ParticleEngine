@@ -1,18 +1,12 @@
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
     entry: './src/ts/kickstart.ts',
     output: {
-        filename: 'build.js',
-        path: path.resolve(__dirname, 'build'),
+        filename: 'particle-engine.js',
+        path: path.resolve(__dirname, 'dist'),
     },
     devtool: 'source-map',
-    plugins: [
-        new HtmlWebpackPlugin({
-            template: './src/index.html'
-        })
-    ],
     resolve: {
         extensions: [ '.ts', '.js' ],
     },
@@ -22,13 +16,7 @@ module.exports = {
                 test: /\.ts$/,
                 use: 'awesome-typescript-loader',
                 exclude: /node_modules/,
-            },
-            {
-                test: /\.(png)$/,
-                use: [
-                    'file-loader',
-                ],
-            },
+            }
         ],
     },
 };
