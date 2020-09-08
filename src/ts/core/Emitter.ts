@@ -355,6 +355,7 @@ export class Emitter {
 
                 // Set a new duration
                 this.driftDuration = ParticleMath.getRandomBetween(this.drift.duration.min, this.drift.duration.max);
+                this.lastDriftChange = this.timestamp;
                 this.drifting = true;
             }
 
