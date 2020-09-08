@@ -2,8 +2,58 @@
 <html>
     <head>
         <title>Particle Engine</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
+            integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+        <style>
+            html {
+                height: 100%;
+            }
+            body {
+                height: 100%;
+            }
+            #container {
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 20px;
+                background: #001F38;
+                height: 100%;
+            }
+            #controls {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            #playback {
+                padding: 7px;
+            }
+            form {
+                min-width: 250px;
+            }
+            canvas {
+                border: 1px solid white;
+                background: #526079;
+            }
+        </style>
     </head>
     <body>
-        <div id="container"></div>
+        <div id="container">
+            <div id="controls">
+                <div id="playback">
+                    <button class="btn btn-primary" onclick="Particle.play()">Play</button>
+                    <button class="btn btn-primary" onclick="Particle.pause()">Pause</button>
+                </div>
+                <form>
+                    <div id="effects" class="form-group">
+                        <select class="form-control" onchange="Particle.runEffect(this.value)">
+                            <option value="snow">Snow</option>
+                            <option value="rain">Rain</option>
+                            <option value="fireworks">Fireworks</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
     </body>
 </html>

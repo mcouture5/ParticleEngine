@@ -26,6 +26,7 @@ export interface ParticleOptions {
     direction: number;
     speed: number;
     jitter: number;
+    image: HTMLImageElement;
 }
 
 interface Position {
@@ -36,6 +37,9 @@ interface Position {
 export class Particle {
     // Reference to the canvas
     private canvasContext: CanvasRenderingContext2D;
+
+    // Image object to draw.
+    private image: HTMLImageElement;
 
     // global coordinates of this particle
     private x: number;
@@ -50,9 +54,9 @@ export class Particle {
 
     // Jitter attributes
     private jitter: number;
-    private jitterForce: number;
+    private jitterForce: number = 0;
     private jitterInterval: number = 0;
-    private lastJitter: number;
+    private lastJitter: number = 0;
 
     // Particle life attributes
     private age: number;
@@ -60,10 +64,8 @@ export class Particle {
     private birthdate: number;
     private dead: boolean = false;
 
-    // Size attributes
+    // Display attributes
     private size: number = 1;
-
-    private color: string;
 
     constructor(canvasContext: CanvasRenderingContext2D, timestamp: DOMHighResTimeStamp, options: ParticleOptions) {
         this.canvasContext = canvasContext;
@@ -147,9 +149,7 @@ export class Particle {
         if (this.dead) {
             return;
         }
-
-        this.canvasContext.fillStyle = this.color;
-        this.canvasContext.fillRect(this.x, this.y, 10 * this.size, 10 * this.size);
+        this.canvasContext.drawImage(this.image, this.x, this.y, 10 * this.size, 10 * this.size);
     }
 
     public isDead(): boolean {
@@ -182,7 +182,7 @@ export class Particle {
             }
             let framesToNextInterval = (this.jitterInterval - (timestamp - this.lastJitter)) / delta;
             let scale = framesToNextInterval - ((this.jitterInterval / delta) / 2);
-            this.fx += (this.jitterForce * scale) / this.speed;
+            this.fx += ((this.jitterForce * scale) / this.speed) * this.size;
         }
     }
 }

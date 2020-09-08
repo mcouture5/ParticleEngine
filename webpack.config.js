@@ -23,6 +23,12 @@ module.exports = {
                 use: 'awesome-typescript-loader',
                 exclude: /node_modules/,
             },
+            {
+                test: /\.(png)$/,
+                use: [
+                    'file-loader',
+                ],
+            },
         ],
     },
 };

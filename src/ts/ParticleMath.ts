@@ -17,17 +17,10 @@ export class ParticleMath {
     }
 
     /**
-     * Returns a random true/false flag based on math.
-     */
-    public static getRandomFlag() {
-        return Math.random() >= 0.5;
-    }
-    
-    /**
      * Will randomly change the sign of the value from positive to negative, vice versa.
      */
     public static randomizeSign(value: number): number {
-        return ParticleMath.getRandomFlag() ? value * -1 : value;
+        return Math.random() >= 0.5 ? value * -1 : value;
     }
     
     /**

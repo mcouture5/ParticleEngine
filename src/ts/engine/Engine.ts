@@ -1,5 +1,5 @@
 import { RequestAnimationFrame } from "../core/RequestAnimationFrame";
-import { Emitter } from "../core/Emitter";
+import { Emitter, EmitterOptions } from "../core/Emitter";
 
 // libs
 import * as $ from "jquery";
@@ -23,6 +23,9 @@ export class Engine {
     private canvas: HTMLCanvasElement;
     private canvasContext: CanvasRenderingContext2D;
 
+    // Keep track of how many emitters have been created to use as the id
+    private emitterIdCount = 0;
+
     constructor() {
         this.requestAnimFrame = new RequestAnimationFrame();
         this.emitters = [];
@@ -39,10 +42,8 @@ export class Engine {
         // Create the canvas
         this.canvas = document.createElement('canvas');
         this.canvas.id = "particleView";
-        this.canvas.width = 400;
-        this.canvas.height = 400;
-        this.canvas.style.position = "absolute";
-        this.canvas.style.border = "1px solid";
+        this.canvas.width = 800;
+        this.canvas.height = 600;
 
         // Append to the proper location
         $('#container').append(this.canvas);
@@ -52,13 +53,31 @@ export class Engine {
     }
 
     /**
-     * Adds a new emitter to the engine.
-     *
-     * @param emitter new ParticleEmitter.
+     * Creates a new emitter and adds it to the engine.
      */
-    public addEmitter(emitter: Emitter) {
+    public createEmitter(options?: EmitterOptions): number {
+        this.emitterIdCount++;
+        let emitter: Emitter = new Emitter(this.emitterIdCount, options);
         emitter.setCanvas(this.canvasContext);
         this.emitters.push(emitter);
+        return this.emitterIdCount;
+    }
+
+    /**
+     * Get the emitter matching the id.
+     * @param id
+     */
+    public getEmitter(id: number) {
+        return this.emitters.find((emitter: Emitter) => emitter.getId() === id);
+    }
+
+    /**
+     * Removes an emitter.
+     * @param id
+     */
+    public removeEmitter(id: number) {
+        let emitter: Emitter = this.getEmitter(id);
+        this.emitters.splice(this.emitters.indexOf(emitter), 1);
     }
 
     /**
@@ -66,6 +85,24 @@ export class Engine {
      */
     public start() {
         this.requestAnimFrame.start();
+    }
+
+    /**
+     * Stops the engine and resets all emitters.
+     */
+    public stop() {
+        this.requestAnimFrame.stop();
+        for (let emitter of this.emitters) {
+            emitter.reset();
+        }
+        this.canvasContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    /**
+     * Pauses the engine to be resumed again by start.
+     */
+    public pause() {
+        this.requestAnimFrame.pause();
     }
 
     /**

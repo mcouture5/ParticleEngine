@@ -1,26 +1,114 @@
-import { ParticleEngine } from './ParticleEngine';
+import { Engine } from './engine/Engine';
 
-let engine = new ParticleEngine();
+// images
+import Snowflake from '../images/snowflake.png';
+import Rain from '../images/rain.png';
+import Firework from '../images/firework.png';
+import FireworkBlue from '../images/firework_b.png';
+import FireworkGreen from '../images/firework_g.png';
+import FireworkOrange from '../images/firework_o.png';
+import FireworkPurple from '../images/firework_p.png';
+import FireworkRed from '../images/firework_r.png';
+import FireworkYellow from '../images/firework_y.png';
 
-// Create sample emitter
-engine.createEmitter({
-    x: -400,
-    y: -100,
-    width: 800,
-    height: 50,
+let engine = new Engine();
+engine.initialize();
+
+// List of fireworkimages to choose at random
+let fireworkImages = [Firework, FireworkBlue, FireworkGreen, FireworkOrange, FireworkPurple, FireworkRed, FireworkYellow];
+let snow = engine.createEmitter({
+    x: { min: -600, max: 1400},
+    y: { min: -100, max: -100},
     mode: 'flow',
     gravity: 0.01,
-    size: { min: 0.5, max: 3 },
+    size: { min: 0.5, max: 2 },
     particleLife: { min: 4000, max: 6000 },
-    speed: {min: 100, max: 150},
+    speed: {min: 80, max: 120},
     angle: { min: 90, max: 90 },
     frequency: { min: 1, max: 1 },
-    jitter: 0.2,
+    quantity: 5,
+    maxParticles: 0,
+    jitter: 0.1,
     drift: {
-        value: 0.02,
+        value: { min: -0.03, max: 0.03 },
         interval: { min: 4000, max: 6000 },
-        duration: { min: 1500, max: 3000 }
-    }
+        duration: { min: 2000, max: 3500 }
+    },
+    image: Snowflake
 });
 
-engine.start();
+let rain = engine.createEmitter({
+    x: { min: -100, max: 900},
+    y: { min: -100, max: -100},
+    mode: 'flow',
+    gravity: 0.01,
+    size: { min: 1, max: 1.2 },
+    particleLife: { min: 4000, max: 6000 },
+    speed: {min: 470, max: 500},
+    angle: { min: 110, max: 110 },
+    frequency: { min: 1, max: 1 },
+    quantity: 5,
+    maxParticles: 0,
+    image: Rain
+});
+
+let currentEffect: string = "snow";
+let fireworkEmitters = [];
+
+// Register the methods to the global window so thet HTML buttons can call them
+(window as any).Particle = {
+    start: function () {
+        engine.start();
+        if (currentEffect === 'snow') {
+            engine.getEmitter(snow).start();
+        } else if (currentEffect === 'rain') {
+            engine.getEmitter(rain).start();
+        } else {
+            for (let emitterId of fireworkEmitters) {
+                let emitter = engine.getEmitter(emitterId);
+                emitter.start();
+            }
+        }
+    },
+
+    play: function() {
+        this.start();
+    },
+
+    pause: function() {
+        engine.pause();
+    },
+
+    runEffect: function(effect: string) {
+        // Clear old firework emitters
+        for (let emitterId of fireworkEmitters) {
+            engine.removeEmitter(emitterId);
+        }
+        fireworkEmitters = [];
+
+        currentEffect = effect;
+
+        // Create randomness in the fireworks
+        if (effect === 'fireworks') {
+            let amount = (Math.random() * 8) + 4;
+            for (var i = 0; i < amount; i++) {
+                let emitterId = engine.createEmitter({
+                    x: { min: 100, max: 700},
+                    y: { min: 50, max: 400},
+                    mode: 'burst',
+                    gravity: 0.0,
+                    size: { min: 1, max: 1.2 },
+                    particleLife: { min: 500, max: 1000 },
+                    speed: {min: 50, max: 150},
+                    angle: { min: 0, max: 360 },
+                    maxParticles: 250,
+                    frequency: { min: 800, max: 1400 },
+                    image: fireworkImages[Math.floor(Math.random() * fireworkImages.length)]
+                });
+                fireworkEmitters.push(emitterId);
+            }
+        }
+        engine.stop();
+        this.start();
+    }
+};

@@ -1,3 +1,8 @@
+enum EngineState {
+    STOPPED,
+    RUNNING
+}
+
 /**
  * Container class for the window.requestAnimationFrame logic. This is the main engine loop.
  * 
@@ -7,12 +12,7 @@ export class RequestAnimationFrame {
     private callback: (timestamp: number) => void;
     private animationFrameId: number;
     private gameTime = 0;
-    private lastFrame: number = 0;
-    private lastDelta: number = 0;
-
-    constructor() {
-        // TODO: FPS?
-    }
+    private state: EngineState = EngineState.STOPPED;
 
     /**
      * Sets the callback method to be invoked every frame.
@@ -28,12 +28,26 @@ export class RequestAnimationFrame {
      */
     public stop() {
         window.cancelAnimationFrame(this.animationFrameId);
+        this.gameTime = 0;
+        this.state = EngineState.STOPPED;
     }
-    
+
+    /**
+     * Pauses the engine by cancelling the animation frame but not clearing the game time.
+     */
+    public pause() {
+        window.cancelAnimationFrame(this.animationFrameId);
+        this.state = EngineState.STOPPED;
+    }
+
     /**
      * Starts the browse animation frame loop.
      */
     public start() {
+        if (this.state == EngineState.RUNNING) {
+            return;
+        }
+        this.state = EngineState.RUNNING;
         this.animationFrameId = window.requestAnimationFrame(() => { this.run(); });
     }
 
