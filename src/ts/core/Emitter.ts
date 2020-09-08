@@ -1,8 +1,8 @@
 import { Particle } from "./Particle";
-import { ParticleMath } from "../ParticleMath";
+import { ParticleMath } from "../util/ParticleMath";
 
 /**
- * Options used when creating each particle. The particle themselves do not have settable options, instead the behavior
+ * Options used when creating each particle. The particles themselves do not have settable options, instead the behavior
  * of each particle is determined by the emitter.
  * 
  * If no options are provided, the default behavior is a burst emitter at position 0,0 with a random speed and life for
@@ -25,12 +25,21 @@ export interface EmitterOptions {
     image?: any;
 
     /**
-     * Determines how the particles will be emitted and behave after emission.
-     * 
-     * burst: All particles will be emitted at once. This is the default.
-     * flow: Particles will be emitted over time.
+     * Determines the direction in degrees from 0 to 360 each particle will travel once emitted. Default is a range from
+     * 0 to 360.
      */
-    mode?: 'burst' | 'flow';
+    angle?: Range;
+
+    /**
+     * Options to apply a constant force to the x axis of the particles. Default is no drift. A value of 1 is crazy.
+     */
+    drift?: Drift;
+
+    /**
+     * Delay in ms to emit a new particle (or burst of particles) after the previous emission. Default is a range from
+     * 300 to 700.
+     */
+    frequency?: Range;
 
     /**
      * Apply a constant force to the positive Y direction of the particles. Default is 0. 1 is crazy.
@@ -38,9 +47,35 @@ export interface EmitterOptions {
     gravity?: number;
 
     /**
-     * Apply a constant force to the x axis of the particles. Default is 0. 1 is crazy.
+     * Applies a random directional force on the x-axis of the particle at a random interval. The value is a factor of
+     * how much the jitter will affect the particle. A value of 0 means no jitter. Anything above 5 won't be seen
+     * because its just too fast.
      */
-    drift?: Drift;
+    jitter?: number;
+
+    /**
+     * Determines the maximum number of particles to render before the emitter ends. Set to 0 for infinte particles
+     * (flow mode only). Default is 50.
+     */
+    maxParticles?: number;
+
+    /**
+     * Determines how the particles will be emitted and behave after emission.
+     * 
+     * burst: All particles will be emitted at once. This is the default.
+     * flow: Particles will be emitted over time.
+     */
+    mode?: string;
+
+    /**
+     * Determines how long the particle will live in ms. Default is a range from 2500 to 3000.
+     */
+    particleLife?: Range;
+
+    /**
+     * If more particles are desired for the flow mode, this will create a set amount on each frequency. Default is 1.
+     */
+    quantity?: number;
 
     /**
      * The size will change the mass and scale of the object. Bigger sizes are more affected by gravity and drift. The
@@ -49,51 +84,14 @@ export interface EmitterOptions {
     size?: Range;
 
     /**
-     * Determines the maximum number of particles to render before the emitter ends. Behaves differently based on the
-     * mode. Set to 0 for infinte particles (flow mode only). Default is 1500.
-     */
-    maxParticles?: number;
-
-    /**
-     * Determines how long the particle will live in ms. Default is a range from 2500 to 3000.
-     */
-    particleLife?: Range;
-
-    /**
-     * Delay in ms to emit a new particle after the previous emission. Behaves differently based on the mode.
-     * 
-     * burst: determines how often the burst will occur. Default is 1.
-     * flow: default is a random amount for each particle, ranging from 100 to 400.
-     */
-    frequency?: Range;
-
-    /**
-     * If more particles are desired for the flow mode, this will create a set amount on each frequency. Default is 1.
-     */
-    quantity?: number;
-
-    /**
-     * Determines the direction in degrees from 0 to 360 each particle will travel once emitted. Default is a range from
-     * 0 to 360.
-     */
-    angle?: Range;
-
-    /**
      * Determines the speed in pixels per second of each particle. Default is a range from 100 to 400.
      */
     speed?: Range;
-
-    /**
-     * Applies a random directional force on the x-axis of the particle at a random interval. The value is a factor of
-     * how much the jitter will affect the particle. A value of 0 means no jitter. Anything above 5 won't be seen
-     * because its just too fast.
-     */
-    jitter?: number;
 }
 
 /**
  * Simple range interface containing a min and max. Used for randomization of particle attributes. Set min and max to
- * the same value for a constant rate
+ * the same value for a constant rate.
  */
 interface Range {
     min: number;
@@ -150,11 +148,11 @@ export class Emitter {
     // Record the last time a particle was emitted. Used for flow mode to determine when to create a new particle.
     private lastEmittedTime: number = 0;
 
-    // The next time an emission will occur
+    // The next time an emission will occur.
     private nextEmitTime: number = 0;
 
-    // Drawing will begin when the image has loaded
-    private imageLoaded: boolean;
+    // Image attributes, only applicable if an image was provided.
+    private imageLoaded: boolean = false;
     private htmlImage: HTMLImageElement;
 
     // Drift properties
@@ -172,27 +170,21 @@ export class Emitter {
     private gravity: number = 0;
     private drift: Drift;
     private size: Range = { min: 1, max: 1 };
-    private maxParticles: number = 1500;
+    private maxParticles: number = 50;
     private particleLife: Range = { min: 2500, max: 3000 };
-    private frequency; // no default, it is different based on mode
+    private frequency: Range = { min: 300, max: 700 };
     private angle: Range = { min: 0, max: 360 };
     private speed: Range = { min: 100, max: 400 };
     private jitter: number = 0;
     private quantity: number = 1;
 
-    constructor(id: number, options?: EmitterOptions) {
+    constructor(id: number, canvasContext:CanvasRenderingContext2D, options?: EmitterOptions) {
         this.id = id;
+        this.canvasContext = canvasContext;
         // Copy over all of the options
         options = options || {};
         for (const key in options) {
             this[key] = options[key]
-        }
-
-        // Default the frequency based on mode
-        if (this.mode === 'burst') {
-            this.frequency = this.frequency || { min: 1, max: 1 };
-        } else {
-            this.frequency = this.frequency || { min: 100, max: 400 };
         }
 
         // Set the initial drift variables
@@ -201,7 +193,8 @@ export class Emitter {
             this.driftDuration = ParticleMath.getRandomBetween(this.drift.duration.min, this.drift.duration.max);
         }
 
-        // Load the image
+        // Load the image, if one was provided. Otherwise, for simplicity, just assume it was loaded. The particle will
+        // just render a circle.
         if (this.image) {
             this.htmlImage = new Image(60, 45);
             this.htmlImage.src = this.image;
@@ -214,7 +207,9 @@ export class Emitter {
     }
 
     /**
-     * Returns the unique numeric id of this emitter.
+     * Returns the unique numeric id of this emitter, provided by the engine.
+     * 
+     * @return unique numeric id
      */
     public getId(): number {
         return this.id;
@@ -248,15 +243,9 @@ export class Emitter {
     }
 
     /**
-     * Set the canvas rendering context to which the particles will be drawn.
-     * @param canvasContext 
-     */
-    public setCanvas(canvasContext: CanvasRenderingContext2D) {
-        this.canvasContext = canvasContext;
-    }
-
-    /**
      * Emitter update loop. Called from the main engine loop.
+     * 
+     * @param timestamp current engine time
      */
     public update(timestamp: number) {
         if (this.state != EmitterState.RUNNING) {
@@ -337,40 +326,35 @@ export class Emitter {
      * @param y starting y position of the particle
      */
     private createParticle(x: number, y: number): Particle {
-        // Determine a random lifespan
-        let lifespan = ParticleMath.getRandomBetween(this.particleLife.min, this.particleLife.max);
-
-        // Determine an initial direction for the particle.
-        let direction = ParticleMath.getRandomBetween(this.angle.min, this.angle.max);
-
-        // Generate a random speed for the particle.
-        let speed = ParticleMath.getRandomBetween(this.speed.min, this.speed.max);
-
-        // Generate a random size for the particle.
-        let size = ParticleMath.getRandomFloatBetween(this.size.min, this.size.max);
-
         return new Particle(this.canvasContext, this.timestamp, {
             x: x, 
             y: y,
             image: this.htmlImage,
+            direction: ParticleMath.getRandomBetween(this.angle.min, this.angle.max),
             gravity: this.gravity,
-            size: size,
-            lifespan: lifespan,
-            direction: direction,
-            speed: speed,
-            jitter: this.jitter
+            jitter: this.jitter,
+            lifespan: ParticleMath.getRandomBetween(this.particleLife.min, this.particleLife.max),
+            size: ParticleMath.getRandomFloatBetween(this.size.min, this.size.max),
+            speed: ParticleMath.getRandomBetween(this.speed.min, this.speed.max)
         });
     }
 
+    /**
+     * Update the particle's position based on the drift, then call the update method on the aprticle, passing in a time
+     * delta so the particle can know how much to move.
+     * 
+     * @param particle Particle to update
+     */
     private updateParticle(particle: Particle) {
         // Check if it is time to set a new drift for all of the particles.
         if (this.drift) {
-            // If it is time to drift and we are not already drifting, being a drift
+            // If it is time to drift and we are not already drifting, begin a drift
             if (this.timestamp - this.lastDriftChange > this.driftInterval && !this.drifting) {
                 // Reset the drift value
                 this.driftValue = ParticleMath.getRandomFloatBetween(this.drift.value.min, this.drift.value.max);
+
+                // Set a new duration
                 this.driftDuration = ParticleMath.getRandomBetween(this.drift.duration.min, this.drift.duration.max);
-                this.lastDriftChange = this.timestamp;
                 this.drifting = true;
             }
 

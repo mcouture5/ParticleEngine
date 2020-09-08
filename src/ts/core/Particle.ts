@@ -1,4 +1,4 @@
-import { ParticleMath } from "../ParticleMath";
+import { ParticleMath } from "../util/ParticleMath";
 
 /**
  * Internal options for each Particle.
@@ -21,17 +21,12 @@ export interface ParticleOptions {
 
     // Attributes copied from the emitter
 
-    gravity: number;
-    size: number;
     direction: number;
-    speed: number;
-    jitter: number;
+    gravity: number;
     image: HTMLImageElement;
-}
-
-interface Position {
-    x: number;
-    y: number;
+    jitter: number;
+    size: number;
+    speed: number;
 }
 
 export class Particle {
@@ -98,7 +93,8 @@ export class Particle {
     }
 
     /**
-     * Set a new drift value.
+     * Set a new drift value. Called from the emitter.
+     * 
      * @param drift
      */
     setDrift(drift: number) {
@@ -109,8 +105,8 @@ export class Particle {
       * Main update loop for the Particle. Called from the emitter.
       * 
       * @param timestamp current timestamp of the engine.
-      * @param delta time since last loop. The browse may lose focus, and will therefor stop updating the loop. This
-      *     value is used to keep the animation in sync with the browser if that happens.
+      * @param delta time since last loop. This affects the particles movement by applying a factor based on the FPS,
+      *     sort of a "catch up" if the FPS drops.
       */
     update(timestamp: number, delta: number) {
         // Update how long this particle has been alive
@@ -127,29 +123,33 @@ export class Particle {
             return;
         }
 
-        // Apply gravity to the particle
+        // Apply all of the force modifications
         this.applyGravity();
-
-        // Apply drift, thus aplying a force to the particle
         this.applyDrift();
-
-        // Apply drift, thus aplying a force to the particle
         this.applyJitter(timestamp, delta);
 
-        // Move
+        // Move at a rate relative to the particle's speed, applied force, and FPS
         this.x += (this.speed * this.fx) * (delta / 1000);
         this.y += (this.speed * this.fy) * (delta / 1000);
     }
 
     /**
-     * Draws itself to the canvas. This method assumes the canvas has already been cleared.
+     * Draws itself to the canvas. This method assumes the canvas has already been cleared. If an image was provided, it
+     * will be drawn. Otherwise, a white circle is drawn.
      */
     render() {
         // If marked to die, don't draw.
         if (this.dead) {
             return;
         }
-        this.canvasContext.drawImage(this.image, this.x, this.y, 10 * this.size, 10 * this.size);
+        if (this.image) {
+            this.canvasContext.drawImage(this.image, this.x, this.y, 10 * this.size, 10 * this.size);
+        } else {
+            this.canvasContext.beginPath();
+            this.canvasContext.arc(this.x, this.y, 10 * this.size, 0, 2 * Math.PI);
+            this.canvasContext.fillStyle = 'rgba(255,255,255,1)';
+            this.canvasContext.fill();
+        }
     }
 
     public isDead(): boolean {
@@ -157,14 +157,14 @@ export class Particle {
     }
 
     /**
-     * Applies a constant force to the y axis of the particle.
+     * Applies a constant force to the y axis of the particle. Scaled reltaive to the size of the particle.
      */
     private applyGravity() {
         this.fy += (this.gravity * this.size);
     }
 
     /**
-     * Applies a constant force to the x axis of the particle.
+     * Applies a constant force to the x axis of the particle. Scaled reltaive to the size of the particle.
      */
     private applyDrift() {
         this.fx += (this.drift * this.size);
@@ -172,6 +172,9 @@ export class Particle {
     
     /**
      * Applies the jitter force to the particle.
+     *
+     * @param timestamp current timestamp of the engine.
+     * @param delta time since last loop. This is used to predict the frames to next interval.
      */
     private applyJitter(timestamp: number, delta: number) {
         if (this.jitter > 0) {
@@ -180,8 +183,24 @@ export class Particle {
                 this.jitterForce = ParticleMath.reverseSign(this.jitterForce);
                 this.lastJitter = timestamp;
             }
+
+            // Determine the frames to next interval, used to calculate the force needed to move the particle. This is
+            // determined by subtracting the current elapsed time since last jitter from the time to the next jitter,
+            // which is finally divided by the FPS.
             let framesToNextInterval = (this.jitterInterval - (timestamp - this.lastJitter)) / delta;
-            let scale = framesToNextInterval - ((this.jitterInterval / delta) / 2);
+
+            // Calculate the total amount of frames to the next jitter interval. This is different from
+            // framesToNextInterval in that it ignores the current frame.
+            let totalFramesToNextInterval = this.jitterInterval / delta;
+
+            // The scale is used to apply enough force in the opposite direction in order to reverse the particle. The
+            // scale is a range from positive n to negative n, or vice versa depending on the direction traveled. This
+            // is done to provide a "boost" to the particle in order to move it. If this is not done, the particle will
+            // not gain enough momentum to reverse its direction. Once it has begun moving in the right direction, more
+            // force is applied in that direction to accelerate its movement.
+            let scale = framesToNextInterval - (totalFramesToNextInterval / 2);
+
+            // Update the force applied in the x direction based on a factor of the jitter force, scale, and size
             this.fx += ((this.jitterForce * scale) / this.speed) * this.size;
         }
     }

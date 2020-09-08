@@ -5,6 +5,11 @@
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
             integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
         <style>
+            * {
+                color: white;
+                font-family: 'Verdana';
+                font-size: 14px;
+            }
             html {
                 height: 100%;
             }
@@ -28,8 +33,14 @@
             #playback {
                 padding: 7px;
             }
+            #description {
+                padding: 7px;
+            }
             form {
                 min-width: 250px;
+            }
+            option {
+                color: black;
             }
             canvas {
                 border: 1px solid white;
@@ -51,9 +62,11 @@
                             <option value="snow">Snow</option>
                             <option value="rain">Rain</option>
                             <option value="fireworks">Fireworks</option>
+                            <option value="default">Default</option>
                         </select>
                     </div>
                 </form>
+                <div id="description"></div>
             </div>
         </div>
     </body>

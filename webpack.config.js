@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = {
-    entry: './src/ts/kickstart.ts',
+    entry: './src/ts/demo.ts',
     output: {
         filename: 'particle-engine.js',
         path: path.resolve(__dirname, 'dist'),

@@ -1,3 +1,6 @@
+/**
+ * Engine state, for idempotent reasons.
+ */
 enum EngineState {
     STOPPED,
     RUNNING
@@ -9,9 +12,17 @@ enum EngineState {
  * This is preferable over setTimeout as it lets the browser determine when it is the best time to render the next frame.
  */
 export class RequestAnimationFrame {
+    
+    // Engine callback, to be provided by the main Engine class.
     private callback: (timestamp: number) => void;
+
+    // Unique ID provided as the return from window.requestAnimationFrame. Used to stop the loop.
     private animationFrameId: number;
-    private gameTime = 0;
+
+    // Custom engine time. This will only update as the engine is running.
+    private engineTime = 0;
+
+    // Local state of the engine.
     private state: EngineState = EngineState.STOPPED;
 
     /**
@@ -24,11 +35,11 @@ export class RequestAnimationFrame {
     }
 
     /**
-     * Stops the browse animation frame loop, effectively pausing the engine.
+     * Stops the browser animation frame loop and reset the time. This effectively restarts the engine.
      */
     public stop() {
         window.cancelAnimationFrame(this.animationFrameId);
-        this.gameTime = 0;
+        this.engineTime = 0;
         this.state = EngineState.STOPPED;
     }
 
@@ -41,7 +52,7 @@ export class RequestAnimationFrame {
     }
 
     /**
-     * Starts the browse animation frame loop.
+     * Starts the browser animation frame loop.
      */
     public start() {
         if (this.state == EngineState.RUNNING) {
@@ -61,11 +72,12 @@ export class RequestAnimationFrame {
             this.run();
         });
 
-        // Keep track of our own game time. This is to account for the browser losing focus. requestAnimationFrame
-        // will pause and the time passed once resumed will not be representative of the actual game time passed.
-        this.gameTime += ((1 / 60) * 1000);
+        // Keep track of our own engine time. This is to account for the browser losing focus. requestAnimationFrame
+        // will pause and the time passed once resumed will not be representative of the actual engime time passed. This
+        // is making a bold assumption that we are always running in 60 FPS.
+        this.engineTime += ((1 / 60) * 1000);
 
         // Run the particle engine code
-        this.callback(this.gameTime);
+        this.callback(this.engineTime);
     }
 }
